@@ -18,6 +18,9 @@ import requests
 HOST = os.environ.get("WRIKE_HOST", "app-eu.wrike.com")
 SPACE_TITLE = os.environ.get("WRIKE_SPACE", "Account Management")
 START = os.environ.get("WRIKE_START", "2025-01-01")
+# Wrike user group -> team label for the Team filter
+TEAM_GROUPS = json.loads(os.environ.get("WRIKE_TEAM_GROUPS") or
+                         '{"INDIA Consultant Team": "India", "LATAM Consultant Team": "LATAM", "EUR team": "EUR"}')
 OUT = pathlib.Path(__file__).parent / "data"
 API = f"https://{HOST}/api/v4"
 S = requests.Session()
@@ -306,6 +309,16 @@ def main():
             n += d.weekday() < 5 and d <= today; d += dt.timedelta(days=1)
         cal.append([mo, n, n * 8])
     write("calendar.csv", ["month", "working_days", "capacity_hours"], cal)
+
+    # Teams from Wrike user groups (first matching group wins, in TEAM_GROUPS order)
+    groups = {g["title"]: g for g in get("/groups").get("data", [])}
+    team_of = {}
+    for title, label in TEAM_GROUPS.items():
+        for uid in (groups.get(title) or {}).get("memberIds", []):
+            team_of.setdefault(person(uid), label)
+    people = sorted({k[2] for k in M})
+    write("teams.csv", ["person", "team"],
+          [[p, team_of.get(p) or ("Former staff" if p.endswith("(inactive)") else "Other")] for p in people])
     print(f"Wrote {len(projects)} projects, {len(M)} monthly rows to {OUT}")
 
 

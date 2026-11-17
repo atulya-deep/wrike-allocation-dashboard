@@ -37,6 +37,7 @@ jobs:
           WRIKE_HOST: ${{ vars.WRIKE_HOST || 'app-eu.wrike.com' }}
           WRIKE_SPACE: ${{ vars.WRIKE_SPACE || 'Account Management' }}
           WRIKE_ACCOUNT_ALIASES: ${{ secrets.WRIKE_ACCOUNT_ALIASES }}
+          WRIKE_TEAM_GROUPS: ${{ secrets.WRIKE_TEAM_GROUPS }}
         run: python refresh_wrike.py
 
       - name: Build encrypted page

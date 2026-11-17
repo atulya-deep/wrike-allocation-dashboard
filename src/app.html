@@ -49,6 +49,7 @@
   <section id="filters" class="ctl">
     <label for="fregion">Region</label><select id="fregion" class="dash-select" data-draw="f_region" aria-label="Filter by region"></select>
     <label for="faccount">Account</label><select id="faccount" class="dash-select" data-draw="f_account" aria-label="Filter by account"></select>
+    <label for="fteam">Team</label><select id="fteam" class="dash-select" data-draw="f_team" aria-label="Filter by team"></select>
   </section>
 
   <section id="kpis" class="tiles">
@@ -61,7 +62,7 @@
 
   <section id="projects">
     <h2>Budget and utilisation by project (PO)</h2>
-    <p class="hint">POs, PoVs and business-development projects with hours or a budget, most hours first. Burn = hours logged ÷ "Total PO Hours" in Wrike. The marker on each bar is 100%; bars stop at 200%. "Budget € per logged hour" divides the PO budget by hours logged so far.</p>
+    <p class="hint">POs, PoVs and business-development projects with hours or a budget, most hours first. Burn = hours logged ÷ "Total PO Hours" in Wrike. The marker on each bar is 100%; bars stop at 200%. "Budget € per logged hour" divides the PO budget by hours logged so far. With a team picked, budgets, logged hours and burn still count everyone; "Team hrs" is that team's part.</p>
     <div class="card tw">
       <table data-source="po_summary" data-row-key="po_id">
         <thead><tr>
@@ -73,6 +74,7 @@
           <th class="n" data-field="current_budget_eur">Current budget €</th>
           <th class="n" data-field="budget_hours">Budget hrs</th>
           <th class="n" data-field="logged_hours">Logged hrs</th>
+          <th class="n" data-field="team_hours">Team hrs</th>
           <th data-field="burn_pct">Burn</th>
           <th class="n" data-field="eur_per_hour">Budget € / logged h</th>
           <th class="n" data-field="people">People</th>
@@ -104,6 +106,7 @@
             <th class="n" data-field="logged_budgeted">Logged on budgeted POs</th>
             <th class="n" data-field="burn_pct">Burn</th>
             <th class="n" data-field="logged_hours">All logged hrs</th>
+            <th class="n" data-field="team_hours">Team hrs</th>
             <th class="n" data-field="people">People</th>
           </tr></thead>
           <tbody data-draw="region_table"></tbody>
@@ -122,6 +125,7 @@
             <th class="n" data-field="budget_eur">Budget €</th>
             <th class="n" data-field="burn_pct">Burn</th>
             <th class="n" data-field="logged_hours">Logged hrs</th>
+            <th class="n" data-field="team_hours">Team hrs</th>
             <th class="n" data-field="people">People</th>
           </tr></thead>
           <tbody data-draw="account_table"></tbody>
@@ -168,6 +172,7 @@
           <table data-source="drill_people" data-row-key="person">
             <thead><tr>
               <th data-field="person">Person</th>
+              <th data-field="team">Team</th>
               <th class="n" data-field="hours">Total hrs</th>
               <th class="n" data-field="share_pct">Share</th>
               <th class="n" data-field="hours_3m"><span class="lbl-3m-short"></span></th>

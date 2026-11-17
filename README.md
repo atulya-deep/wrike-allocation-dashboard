@@ -22,6 +22,8 @@ Repository secrets used:
 | `WRIKE_DASH_PASSWORD` | Password readers type to open the dashboard (12+ characters) |
 | `WRIKE_ACCOUNT_ALIASES` | Optional JSON with account-name clean-up rules |
 
+The Team filter comes from Wrike user groups (INDIA Consultant Team, LATAM Consultant Team, EUR team). To change the mapping, set the `WRIKE_TEAM_GROUPS` secret to JSON such as `{"INDIA Consultant Team": "India"}`.
+
 Optional repository variables: `WRIKE_HOST` (default `app-eu.wrike.com`), `WRIKE_SPACE` (default `Account Management`).
 
 Until `WRIKE_TOKEN` is set, the workflow deploys the committed `index.html` snapshot.

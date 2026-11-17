@@ -10,9 +10,9 @@ window.ASOF = ASOF; window.CUR = CUR; window.PREV = PREV; window.PREV2 = PREV2; 
 window.MONTHS3 = MONTHS3;
 const r2 = (x) => Math.round(x * 100) / 100;
 
-dash.calc('logs', {
-  title: 'Time logs in the current filter',
-  description: 'Monthly time logs joined to their project, account and region, kept to the region and account picked at the top.',
+dash.calc('logs_all', {
+  title: 'Time logs in the current region and account',
+  description: 'Monthly time logs joined to their project, account and region, kept to the region and account picked at the top (all teams).',
   inputs: ['monthly', 'projects'],
   fn: (monthly, projects) => {
     const pr = new Map(projects.map((p) => [p.po_id, p]));
@@ -22,13 +22,25 @@ dash.calc('logs', {
   },
 });
 
+dash.calc('logs', {
+  title: 'Time logs in the current filter',
+  description: 'The time logs above, tagged with each person\'s Wrike team and kept to the team picked at the top.',
+  inputs: ['logs_all', 'teams'],
+  fn: (logs, teams) => {
+    const tm = new Map(teams.map((t) => [t.person, t.team]));
+    const team = dash.params().team || '';
+    return logs.map((r) => ({ ...r, team: tm.get(r.person) || 'Other' })).filter((r) => !team || r.team === team);
+  },
+});
+
 dash.calc('po_summary', {
   title: 'Budget and burn by PO',
   description: 'Each PO\'s Wrike budget fields beside the hours logged on it and its use cases, in the current filter.',
-  inputs: ['projects', 'logs'],
-  fn: (projects, logs) => {
-    const { region = '', account = '' } = dash.params();
+  inputs: ['projects', 'logs_all', 'logs'],
+  fn: (projects, logs, teamLogs) => {
+    const { region = '', account = '', team = '' } = dash.params();
     const by = d3.group(logs, (r) => r.po_id);
+    const th = d3.rollup(teamLogs, (v) => d3.sum(v, (r) => r.hours), (r) => r.po_id);
     return projects.filter((p) => (!region || p.region === region) && (!account || p.account === account)).map((p) => {
       const rows = by.get(p.po_id) || [];
       const logged = d3.sum(rows, (r) => r.hours);
@@ -42,7 +54,7 @@ dash.calc('po_summary', {
       return {
         po_id: p.po_id, project: p.project, account: p.account, region: p.region, item_type: p.item_type, status: p.status,
         po_type: p.po_type || (!/^\W*PO$/.test(p.item_type) ? p.item_type.replace(/^\W+/, '') : ''), budget_eur: be, current_budget_eur: N(p.current_budget_eur), budget_hours: bh,
-        logged_hours: r2(logged), billable_hours: r2(d3.sum(rows.filter((r) => r.billable === 'Billable'), (r) => r.hours)),
+        logged_hours: r2(logged), team_hours: r2(th.get(p.po_id) || 0), billable_hours: r2(d3.sum(rows.filter((r) => r.billable === 'Billable'), (r) => r.hours)),
         burn_pct: bh ? Math.round((logged / bh) * 1000) / 10 : null,
         eur_per_hour: be && logged ? Math.round(be / logged) : null,
         people: new Set(rows.map((r) => r.person)).size,
@@ -50,7 +62,7 @@ dash.calc('po_summary', {
         first_month: months[0] || null, last_month: months[months.length - 1] || null,
         flag, link: p.wrike_link,
       };
-    }).filter((r) => r.logged_hours > 0 || r.budget_eur).sort((a, b) => b.logged_hours - a.logged_hours);
+    }).filter((r) => (team ? r.team_hours > 0 : (r.logged_hours > 0 || r.budget_eur))).sort((a, b) => (team ? b.team_hours - a.team_hours : b.logged_hours - a.logged_hours));
   },
 });
 
@@ -80,7 +92,7 @@ const rollPos = (ps, logs, keyFn) => {
   const b = ps.filter((p) => p.budget_hours && p.flag !== 'Hours budget looks incomplete');
   const bh = d3.sum(b, (p) => p.budget_hours), lb = d3.sum(b, (p) => p.logged_hours);
   return { projects: ps.length, budget_eur: d3.sum(ps, (p) => p.budget_eur || 0), budget_hours: bh, logged_budgeted: r2(lb),
-    burn_pct: bh ? Math.round((lb / bh) * 1000) / 10 : null, logged_hours: r2(d3.sum(ps, (p) => p.logged_hours)),
+    burn_pct: bh ? Math.round((lb / bh) * 1000) / 10 : null, logged_hours: r2(d3.sum(ps, (p) => p.logged_hours)), team_hours: r2(d3.sum(ps, (p) => p.team_hours)),
     people: new Set(logs.filter(keyFn).map((r) => r.person)).size };
 };
 window.rollPos = rollPos;
@@ -90,7 +102,7 @@ dash.calc('region_summary', {
   description: 'PO summary rolled up by Celonis Region.',
   inputs: ['po_summary', 'logs'],
   fn: (pos, logs) => d3.groups(pos, (p) => p.region).map(([region, ps]) => ({ region, ...rollPos(ps, logs, (r) => r.region === region) }))
-    .sort((a, b) => b.logged_hours - a.logged_hours),
+    .sort((a, b) => b.team_hours - a.team_hours),
 });
 
 dash.calc('account_summary', {
@@ -98,7 +110,7 @@ dash.calc('account_summary', {
   description: 'PO summary rolled up by client account.',
   inputs: ['po_summary', 'logs'],
   fn: (pos, logs) => d3.groups(pos, (p) => p.account).map(([account, ps]) => ({ account, region: ps[0].region, ...rollPos(ps, logs, (r) => r.account === account) }))
-    .sort((a, b) => b.logged_hours - a.logged_hours),
+    .sort((a, b) => b.team_hours - a.team_hours),
 });
 
 dash.calc('usecase_summary', {
@@ -162,7 +174,7 @@ dash.calc('drill_people', {
     const tot = d3.sum(rows, (r) => r.hours);
     return d3.groups(rows, (r) => r.person).map(([person, v]) => {
       const h = d3.sum(v, (r) => r.hours); const ms = v.map((r) => r.month).sort();
-      return { person, hours: r2(h), share_pct: Math.round((h / tot) * 1000) / 10,
+      return { person, team: v[0].team, hours: r2(h), share_pct: Math.round((h / tot) * 1000) / 10,
         hours_3m: r2(d3.sum(v.filter((r) => MONTHS3.includes(r.month)), (r) => r.hours)),
         hours_nov: r2(d3.sum(v.filter((r) => r.month === CUR), (r) => r.hours)),
         billable_pct: Math.round((d3.sum(v.filter((r) => r.billable === 'Billable'), (r) => r.hours) / h) * 1000) / 10,
@@ -185,9 +197,10 @@ dash.calc('drill_months', {
 dash.calc('drill_weekly', {
   title: 'Selected project hours by week and person',
   description: 'Weekly hours per person on the picked project, last 12 weeks up to the refresh date.',
-  inputs: ['po_summary', 'weekly'],
-  fn: (pos, weekly) => {
-    const id = pickPo(pos);
+  inputs: ['po_summary', 'weekly', 'teams'],
+  fn: (pos, weekly, teams) => {
+    const id = pickPo(pos); const team = dash.params().team || '';
+    const tm = new Map(teams.map((t) => [t.person, t.team])); weekly = weekly.filter((r) => !team || (tm.get(r.person) || 'Other') === team);
     const weeks = d3.utcMondays(d3.utcDay.offset(WEEK0, -77), d3.utcDay.offset(WEEK0, 1)).map((d) => d.toISOString().slice(0, 10));
     return d3.rollups(weekly.filter((r) => r.po_id === id && weeks.includes(r.week)), (v) => d3.sum(v, (r) => +r.hours), (r) => r.person, (r) => r.week)
       .flatMap(([person, g]) => g.map(([week, hours]) => ({ key: person + '|' + week, person, week, hours: r2(hours) })));
@@ -197,9 +210,10 @@ dash.calc('drill_weekly', {
 dash.calc('drill_tasks', {
   title: 'Selected project hours by task',
   description: 'Hours per Wrike task on the picked project.',
-  inputs: ['po_summary', 'tasks'],
-  fn: (pos, tasks) => {
-    const id = pickPo(pos);
+  inputs: ['po_summary', 'tasks', 'teams'],
+  fn: (pos, tasks, teams) => {
+    const id = pickPo(pos); const team = dash.params().team || '';
+    const tm = new Map(teams.map((t) => [t.person, t.team])); tasks = tasks.filter((r) => !team || (tm.get(r.person) || 'Other') === team);
     return d3.groups(tasks.filter((r) => r.po_id === id), (r) => r.use_case + ' › ' + r.task).map(([k, v]) => {
       const byP = d3.rollups(v, (x) => d3.sum(x, (r) => +r.hours), (r) => r.person).sort((a, b) => b[1] - a[1]);
       return { task_key: k, use_case: v[0].use_case, task: v[0].task, hours: r2(d3.sum(v, (r) => +r.hours)),
@@ -270,6 +284,15 @@ dash.draw('f_account', (sel) => {
   sel.onchange = () => dash.setParams({ account: sel.value, uc_po: '' });
 });
 
+dash.draw('f_team', (sel) => {
+  const d = dash.data('teams');
+  const order = ['India', 'LATAM', 'EUR', 'Other', 'Former staff'];
+  const teams = d.status === 'ok' ? [...new Set([...d.data.map((r) => r.team), 'Other'])].sort((a, b) => (order.indexOf(a) + 99) % 99 - (order.indexOf(b) + 99) % 99) : [];
+  sel.replaceChildren(new Option('All teams', ''), ...teams.map((t) => new Option(t === 'India' ? 'India team' : t === 'LATAM' ? 'LATAM team' : t === 'EUR' ? 'EUR team' : t, t)));
+  sel.value = dash.params().team || '';
+  sel.onchange = () => dash.setParams({ team: sel.value });
+});
+
 const one = (id, field, fmt) => (el) => {
   const d = dash.data(id);
   el.classList.toggle('dash-skeleton', d.status === 'loading');
@@ -299,7 +322,7 @@ dash.draw('po_table', (tb) => {
     const a = document.createElement('a'); a.href = r.link; a.target = '_blank'; a.rel = 'noopener'; a.textContent = r.project;
     const c0 = document.createElement('td'); if (r.link) c0.appendChild(a); else c0.textContent = r.project; tr.appendChild(c0);
     td(r.account); td(r.status); td(r.po_type); td(fE(r.budget_eur), 'n'); td(fE(r.current_budget_eur), 'n');
-    td(r.budget_hours ? fN(r.budget_hours) : '', 'n'); td(fN(r.logged_hours), 'n');
+    td(r.budget_hours ? fN(r.budget_hours) : '', 'n'); td(fN(r.logged_hours), 'n'); td(fN(r.team_hours), 'n');
     const cb = document.createElement('td');
     if (r.burn_pct !== null && r.flag !== 'Hours budget looks incomplete') {
       const wrap = document.createElement('div'); wrap.style.cssText = 'display:flex;align-items:center;gap:8px';
@@ -326,8 +349,8 @@ const simpleTable = (id, cols) => (tb) => {
     return tr;
   }));
 };
-dash.draw('region_table', simpleTable('region_summary', [['region'], ['projects', fN, 'n'], ['budget_eur', fE, 'n'], ['budget_hours', fN, 'n'], ['logged_budgeted', fN, 'n'], ['burn_pct', fP, 'n'], ['logged_hours', fN, 'n'], ['people', fN, 'n']]));
-dash.draw('account_table', simpleTable('account_summary', [['account'], ['region'], ['projects', fN, 'n'], ['budget_eur', fE, 'n'], ['burn_pct', fP, 'n'], ['logged_hours', fN, 'n'], ['people', fN, 'n']]));
+dash.draw('region_table', simpleTable('region_summary', [['region'], ['projects', fN, 'n'], ['budget_eur', fE, 'n'], ['budget_hours', fN, 'n'], ['logged_budgeted', fN, 'n'], ['burn_pct', fP, 'n'], ['logged_hours', fN, 'n'], ['team_hours', fN, 'n'], ['people', fN, 'n']]));
+dash.draw('account_table', simpleTable('account_summary', [['account'], ['region'], ['projects', fN, 'n'], ['budget_eur', fE, 'n'], ['burn_pct', fP, 'n'], ['logged_hours', fN, 'n'], ['team_hours', fN, 'n'], ['people', fN, 'n']]));
 
 dash.draw('uc_select', (sel) => {
   const d = dash.data('po_summary');
@@ -403,7 +426,7 @@ dash.draw('d_logged', one('drill_head', 'logged_hours', fN));
 dash.draw('d_bhrs', one('drill_head', 'budget_hours', fN));
 dash.draw('d_burn', (el) => { one('drill_head', 'burn_pct', fP)(el); const d = dash.data('drill_head'); ['ok', 'warn', 'bad'].forEach((c) => el.classList.remove(c)); const c = d.status === 'ok' && d.data[0] ? burnClass(d.data[0].burn_pct) : ''; if (c) el.classList.add(c); });
 dash.draw('d_people', one('drill_head', 'people', fN));
-dash.draw('drill_people_t', simpleTable('drill_people', [['person'], ['hours', fN, 'n'], ['share_pct', fP, 'n'], ['hours_3m', fN, 'n'], ['hours_nov', fN, 'n'], ['billable_pct', fP, 'n'], ['last_month', fM]]));
+dash.draw('drill_people_t', simpleTable('drill_people', [['person'], ['team'], ['hours', fN, 'n'], ['share_pct', fP, 'n'], ['hours_3m', fN, 'n'], ['hours_nov', fN, 'n'], ['billable_pct', fP, 'n'], ['last_month', fM]]));
 dash.draw('drill_tasks_t', simpleTable('drill_tasks', [['use_case'], ['task'], ['hours', fN, 'n'], ['hours_3m', fN, 'n'], ['people', fN, 'n'], ['top_person']]));
 dash.draw('drill_bars', (el) => {
   const d = dash.data('drill_months');

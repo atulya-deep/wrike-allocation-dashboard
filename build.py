@@ -29,8 +29,9 @@ DATASETS = {
     "tasks": "timelog_tasks.csv",
     "weekly": "timelog_weekly.csv",
     "calendar": "calendar.csv",
+    "teams": "teams.csv",
 }
-DEFAULT_PARAMS = {"po": "4389613829", "uc_po": "", "ppl": "active", "region": "", "account": ""}
+DEFAULT_PARAMS = {"po": "4389613829", "uc_po": "", "ppl": "active", "region": "", "account": "", "team": ""}
 
 
 def main() -> None:
