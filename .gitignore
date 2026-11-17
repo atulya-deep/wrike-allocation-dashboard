@@ -1,0 +1,4 @@
+# Raw Wrike exports hold client and people data in plain text: never commit them.
+data/
+*.csv
+.env

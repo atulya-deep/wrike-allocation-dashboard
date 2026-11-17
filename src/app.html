@@ -1,0 +1,232 @@
+<style>
+.wd{display:flex;flex-direction:column;gap:var(--cds-gap-xl);font-family:var(--font-anthropic-sans);color:var(--color-fg)}
+.wd h1{font-family:var(--font-anthropic-serif);font-weight:400;font-size:var(--cds-font-size-title);margin:0}
+.wd h2{font-size:var(--cds-font-size-heading);font-weight:var(--cds-font-weight-medium);margin:0 0 var(--cds-gap-xs) 0}
+.wd .sub{color:var(--color-fg-muted);font-size:var(--cds-font-size-caption);margin:var(--cds-gap-xs) 0 0}
+.wd .lede{font-size:var(--cds-font-size-body);margin:var(--cds-gap-sm) 0 0;max-width:70ch}
+.wd .hint{color:var(--color-fg-muted);font-size:var(--cds-font-size-caption);margin:0 0 var(--cds-gap-sm)}
+.wd .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:var(--cds-gap-md)}
+.wd .tile{background:var(--color-panel);border:1px solid var(--color-border-line);border-radius:var(--cds-radius);padding:var(--cds-pad-lg)}
+.wd .tile .lbl{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted)}
+.wd .tile .num{font-family:var(--font-anthropic-serif);font-weight:400;font-size:var(--cds-font-size-title);font-variant-numeric:tabular-nums;margin-top:var(--cds-gap-xs)}
+.wd .tile .win{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted);margin-top:var(--cds-gap-xs)}
+.wd .card{background:var(--color-panel);border:1px solid var(--color-border-line);border-radius:var(--cds-radius);padding:var(--cds-pad-lg)}
+.wd .tw{overflow-x:auto}
+.wd table{border-collapse:collapse;width:100%;font-size:var(--cds-font-size-caption);font-variant-numeric:tabular-nums}
+.wd th{text-align:left;font-weight:var(--cds-font-weight-medium);color:var(--color-fg-muted);border-bottom:1px solid var(--color-border-line);padding:6px 8px;white-space:nowrap}
+.wd td{border-bottom:1px solid var(--color-border-line);padding:6px 8px;vertical-align:middle}
+.wd td.n,.wd th.n{text-align:right;white-space:nowrap}
+.wd .bar{position:relative;height:8px;background:var(--cds-chart-grid);border-radius:4px;min-width:80px}
+.wd .bar>i{position:absolute;left:0;top:0;bottom:0;border-radius:4px}
+.wd .bar>b{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--cds-chart-reference)}
+.wd .ok{color:var(--color-ok)}.wd .warn{color:var(--color-warn)}.wd .bad{color:var(--color-bad)}
+.wd .flag{color:var(--color-warn)}
+.wd .row2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:var(--cds-gap-lg)}
+.wd .chart{position:relative;min-height:240px}
+.wd .heat{position:relative;min-height:120px}
+.wd .tip{position:absolute;pointer-events:none;background:var(--cds-surface-popover);border:1px solid var(--cds-border);box-shadow:var(--cds-shadow-popover);border-radius:var(--cds-radius);padding:6px 8px;font-size:var(--cds-font-size-caption);white-space:nowrap;z-index:5}
+.wd .tip .s{color:var(--cds-text-secondary)}
+.wd svg text{font-size:11px;fill:var(--cds-text-secondary)}
+.wd .axis text{fill:var(--cds-text-secondary);font-size:11px}
+.wd .axis path,.wd .axis line{stroke:var(--cds-chart-axis)}
+.wd .ctl{display:flex;gap:var(--cds-gap-sm);align-items:center;flex-wrap:wrap;margin-bottom:var(--cds-gap-md)}
+.wd .ctl label{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted)}
+.wd .legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:var(--cds-font-size-caption);color:var(--color-fg-muted);margin-top:var(--cds-gap-sm)}
+.wd .legend span{display:inline-flex;align-items:center;gap:5px}
+.wd .legend i{width:10px;height:10px;border-radius:2px;display:inline-block}
+.wd details{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted)}
+.wd details li{margin:4px 0}
+.wd a{color:inherit}
+</style>
+
+<div class="wd">
+  <header id="top">
+    <h1>Wrike project allocation &amp; utilisation</h1>
+    <p class="sub">All client accounts in Wrike's Account Management space · refreshed daily from Wrike · data as of <span class="lbl-asof"></span></p>
+    <p class="lede" data-read lang="en"><span data-draw="lede"></span></p>
+  </header>
+
+  <section id="filters" class="ctl">
+    <label for="fregion">Region</label><select id="fregion" class="dash-select" data-draw="f_region" aria-label="Filter by region"></select>
+    <label for="faccount">Account</label><select id="faccount" class="dash-select" data-draw="f_account" aria-label="Filter by account"></select>
+  </section>
+
+  <section id="kpis" class="tiles">
+    <div class="tile"><div class="lbl">Hours logged</div><div class="num" data-draw="k_total" data-source="kpis" data-field="total_hours" data-row="0">—</div><div class="win">All time, current filter</div></div>
+    <div class="tile"><div class="lbl">Billable share</div><div class="num" data-draw="k_bill" data-source="kpis" data-field="billable_pct" data-row="0">—</div><div class="win">Billable hours ÷ all hours</div></div>
+    <div class="tile"><div class="lbl">People logging time</div><div class="num" data-draw="k_people" data-source="kpis" data-field="people_3m" data-row="0">—</div><div class="win"><span class="lbl-3m"></span></div></div>
+    <div class="tile"><div class="lbl">Hours in <span class="lbl-prev"></span></div><div class="num" data-draw="k_oct" data-source="kpis" data-field="hours_oct" data-row="0">—</div><div class="win">vs <span class="lbl-prev2"></span>: <span data-draw="k_oct_chg" data-source="kpis" data-field="oct_vs_sep_pct" data-row="0">—</span></div></div>
+    <div class="tile"><div class="lbl">POs over hours budget</div><div class="num" data-draw="k_over" data-source="kpis" data-field="pos_over" data-row="0">—</div><div class="win">of <span data-draw="k_budgeted" data-source="kpis" data-field="pos_budgeted" data-row="0">—</span> POs with a usable hours budget</div></div>
+  </section>
+
+  <section id="projects">
+    <h2>Budget and utilisation by project (PO)</h2>
+    <p class="hint">POs, PoVs and business-development projects with hours or a budget, most hours first. Burn = hours logged ÷ "Total PO Hours" in Wrike. The marker on each bar is 100%; bars stop at 200%. "Budget € per logged hour" divides the PO budget by hours logged so far.</p>
+    <div class="card tw">
+      <table data-source="po_summary" data-row-key="po_id">
+        <thead><tr>
+          <th data-field="project">Project</th>
+          <th data-field="account">Account</th>
+          <th data-field="status">Status</th>
+          <th data-field="po_type">PO type</th>
+          <th class="n" data-field="budget_eur">Budget €</th>
+          <th class="n" data-field="current_budget_eur">Current budget €</th>
+          <th class="n" data-field="budget_hours">Budget hrs</th>
+          <th class="n" data-field="logged_hours">Logged hrs</th>
+          <th data-field="burn_pct">Burn</th>
+          <th class="n" data-field="eur_per_hour">Budget € / logged h</th>
+          <th class="n" data-field="people">People</th>
+          <th class="n" data-field="hours_3m">Hrs <span class="lbl-3m-short"></span></th>
+          <th data-field="flag">Data note</th>
+        </tr></thead>
+        <tbody data-draw="po_table"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="trend">
+    <h2>Hours logged per month</h2>
+    <p class="hint"><span data-draw="trend_hint"></span> The current month is month to date.</p>
+    <div class="card"><div class="chart" data-draw="trend" data-source="month_project"></div></div>
+  </section>
+
+  <div class="row2">
+    <section id="regions">
+      <h2>By region</h2>
+      <p class="hint">Region is the account's "Celonis Region" in Wrike. Burn uses only POs with a usable hours budget. "Unknown" is time on archived items that no longer link to an account.</p>
+      <div class="card tw">
+        <table data-source="region_summary" data-row-key="region">
+          <thead><tr>
+            <th data-field="region">Region</th>
+            <th class="n" data-field="projects">POs</th>
+            <th class="n" data-field="budget_eur">Budget €</th>
+            <th class="n" data-field="budget_hours">Budget hrs</th>
+            <th class="n" data-field="logged_budgeted">Logged on budgeted POs</th>
+            <th class="n" data-field="burn_pct">Burn</th>
+            <th class="n" data-field="logged_hours">All logged hrs</th>
+            <th class="n" data-field="people">People</th>
+          </tr></thead>
+          <tbody data-draw="region_table"></tbody>
+        </table>
+      </div>
+    </section>
+    <section id="accounts">
+      <h2>By account</h2>
+      <p class="hint">Same measures, one row per client account, most hours first.</p>
+      <div class="card tw">
+        <table data-source="account_summary" data-row-key="account">
+          <thead><tr>
+            <th data-field="account">Account</th>
+            <th data-field="region">Region</th>
+            <th class="n" data-field="projects">POs</th>
+            <th class="n" data-field="budget_eur">Budget €</th>
+            <th class="n" data-field="burn_pct">Burn</th>
+            <th class="n" data-field="logged_hours">Logged hrs</th>
+            <th class="n" data-field="people">People</th>
+          </tr></thead>
+          <tbody data-draw="account_table"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <section id="usecases">
+    <h2>By use case</h2>
+    <p class="hint">A use case is a "Use Case or Sub Project" under a PO in Wrike. Time booked straight on a PO's own tasks shows as "(PO-level work)". Budgets are kept per PO, so use cases show their share of the PO's hours instead.</p>
+    <div class="ctl"><label for="ucp">Project</label><select id="ucp" class="dash-select" data-draw="uc_select" aria-label="Filter use cases by project"></select></div>
+    <div class="card tw">
+      <table data-source="usecase_summary" data-row-key="uc_key">
+        <thead><tr>
+          <th data-field="project">Project</th>
+          <th data-field="use_case">Use case</th>
+          <th class="n" data-field="hours">Logged hrs</th>
+          <th data-field="share_of_po">Share of PO hours</th>
+          <th class="n" data-field="hours_3m">Hrs <span class="lbl-3m-short"></span></th>
+          <th class="n" data-field="people">People</th>
+          <th data-field="first_month">First</th>
+          <th data-field="last_month">Last</th>
+        </tr></thead>
+        <tbody data-draw="uc_table"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="drill">
+    <h2>Project dashboard: who is allocated and what they logged</h2>
+    <div class="ctl"><label for="drillsel">Project</label><select id="drillsel" class="dash-select" data-draw="drill_select" aria-label="Choose a project"></select>
+      <a data-draw="drill_link" class="sub" target="_blank" rel="noopener"></a></div>
+    <div class="tiles">
+      <div class="tile"><div class="lbl">Budget €</div><div class="num" data-draw="d_budget" data-source="drill_head" data-field="budget_eur" data-row="0">—</div><div class="win" data-draw="d_type">—</div></div>
+      <div class="tile"><div class="lbl">Logged / budget hours</div><div class="num" data-draw="d_logged" data-source="drill_head" data-field="logged_hours" data-row="0">—</div><div class="win">of <span data-draw="d_bhrs" data-source="drill_head" data-field="budget_hours" data-row="0">—</span> budgeted</div></div>
+      <div class="tile"><div class="lbl">Burn</div><div class="num" data-draw="d_burn" data-source="drill_head" data-field="burn_pct" data-row="0">—</div><div class="win">Logged ÷ budget hours</div></div>
+      <div class="tile"><div class="lbl">People</div><div class="num" data-draw="d_people" data-source="drill_head" data-field="people" data-row="0">—</div><div class="win">Ever logged on this PO</div></div>
+    </div>
+    <div class="row2" style="margin-top:var(--cds-gap-lg)">
+      <div>
+        <h2>People on this project</h2>
+        <div class="card tw">
+          <table data-source="drill_people" data-row-key="person">
+            <thead><tr>
+              <th data-field="person">Person</th>
+              <th class="n" data-field="hours">Total hrs</th>
+              <th class="n" data-field="share_pct">Share</th>
+              <th class="n" data-field="hours_3m"><span class="lbl-3m-short"></span></th>
+              <th class="n" data-field="hours_nov"><span class="lbl-cur"></span> MTD</th>
+              <th class="n" data-field="billable_pct">Billable</th>
+              <th data-field="last_month">Last logged</th>
+            </tr></thead>
+            <tbody data-draw="drill_people_t"></tbody>
+          </table>
+        </div>
+      </div>
+      <div>
+        <h2>Monthly hours by person</h2>
+        <div class="card"><div class="chart" data-draw="drill_bars" data-source="drill_months"></div></div>
+      </div>
+    </div>
+    <div style="margin-top:var(--cds-gap-lg)">
+      <h2>Weekly time logging, last 12 weeks</h2>
+      <p class="hint">Hours each person logged on this project per week (weeks start Monday). Empty cells mean nothing logged.</p>
+      <div class="card"><div class="heat" data-draw="drill_heat" data-source="drill_weekly"></div></div>
+    </div>
+    <div style="margin-top:var(--cds-gap-lg)">
+      <h2>Where the hours went (tasks)</h2>
+      <div class="card tw">
+        <table data-source="drill_tasks" data-row-key="task_key">
+          <thead><tr>
+            <th data-field="use_case">Use case</th>
+            <th data-field="task">Task</th>
+            <th class="n" data-field="hours">Logged hrs</th>
+            <th class="n" data-field="hours_3m"><span class="lbl-3m-short"></span></th>
+            <th class="n" data-field="people">People</th>
+            <th data-field="top_person">Most hours</th>
+          </tr></thead>
+          <tbody data-draw="drill_tasks_t"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="people">
+    <h2>People utilisation</h2>
+    <p class="hint">Client hours logged in the Account Management space (within the region/account filter) ÷ working-day capacity (8 h × Mon–Fri days). Internal and non-client spaces aren't included. The current month counts working days up to the refresh date.</p>
+    <div class="ctl"><label for="pplf">Show</label>
+      <select id="pplf" class="dash-select" aria-label="Which people to show">
+        <option value="active">People active in the last 3 months</option>
+        <option value="all">Everyone</option>
+      </select></div>
+    <div class="card"><div class="heat" data-draw="ppl_heat" data-source="person_util calendar"></div></div>
+  </section>
+
+  <details id="notes">
+    <summary>How these numbers are built</summary>
+    <ul>
+      <li>Every night a GitHub Action reads all time logs, projects and budget fields in Wrike's Account Management space through the Wrike API and rebuilds this page.</li>
+      <li>Each time entry is assigned to its PO (or PoV / business-development project) by walking up Wrike's folder hierarchy, and to an account the same way. Where an archived item no longer links to an account, the account is taken from the item or task name; what still can't be placed shows as "Unassigned".</li>
+      <li>Budget €, current budget €, PD, Total PO Hours and avg rate are PO custom fields as entered in Wrike. POs with no hours budget, or one that looks incomplete, are flagged rather than corrected.</li>
+      <li>Account names that differ only in spelling or capitalisation are merged. Nord and Nordix are shown as Nordics. Accounts with no Celonis Region show "Not set".</li>
+      <li>Hours logged on future dates count in totals but not in utilisation.</li>
+    </ul>
+  </details>
+</div>
+

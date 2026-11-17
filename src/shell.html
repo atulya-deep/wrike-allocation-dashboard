@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Wrike allocation &amp; utilisation</title>
+<style>
+:root{
+  --color-fg:#1f1e1d;--color-fg-muted:#6b6a68;--color-bg:#faf9f5;--color-panel:#ffffff;--color-border-line:#e6e3dc;
+  --color-ok:#2f7d4f;--color-warn:#b26a00;--color-bad:#c0392b;
+  --font-anthropic-sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --font-anthropic-serif:Georgia,"Times New Roman",serif;
+  --cds-font-size-caption:12px;--cds-font-size-body:15px;--cds-font-size-heading:17px;--cds-font-size-title:28px;--cds-font-weight-medium:600;
+  --cds-gap-xs:4px;--cds-gap-sm:8px;--cds-gap-md:12px;--cds-gap-lg:20px;--cds-gap-xl:32px;
+  --cds-pad-lg:16px;--cds-radius:10px;
+  --cds-chart-grid:#ece9e2;--cds-chart-axis:#cfcbc2;--cds-chart-reference:#6b6a68;--cds-chart-muted:#c9c5bc;--cds-chart-status-critical:#c0392b;
+  --cds-text-secondary:#6b6a68;--cds-surface-popover:#ffffff;--cds-border:#e0ddd5;--cds-shadow-popover:0 4px 16px rgba(0,0,0,.12);
+  --c1:#3b6fd4;--c2:#d97757;--c3:#2a9d8f;--c4:#8e6ccf;--c5:#e0a526;--c6:#5b8c3a;--c7:#c75b8a;--c8:#4aa3c7;
+}
+@media (prefers-color-scheme: dark){:root{
+  --color-fg:#eceae4;--color-fg-muted:#a3a19b;--color-bg:#1c1b19;--color-panel:#262522;--color-border-line:#3a3834;
+  --cds-chart-grid:#33312d;--cds-chart-axis:#4a4843;--cds-chart-muted:#55524c;--cds-text-secondary:#a3a19b;--cds-surface-popover:#2e2d29;--cds-border:#45433e;
+}}
+html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:var(--font-anthropic-sans)}
+#dash-root{max-width:1280px;margin:0 auto;padding:32px 24px 64px}
+.dash-select{font:inherit;font-size:13px;color:var(--color-fg);background-color:var(--color-panel);border:1px solid var(--color-border-line);border-radius:8px;padding:6px 10px;max-width:100%}
+#gate{min-height:100vh;display:flex;align-items:center;justify-content:center}
+#gate form{background:var(--color-panel);border:1px solid var(--color-border-line);border-radius:14px;padding:28px;width:min(360px,90vw);display:flex;flex-direction:column;gap:12px}
+#gate h1{font-family:var(--font-anthropic-serif);font-weight:400;font-size:24px;margin:0}
+#gate p{margin:0;color:var(--color-fg-muted);font-size:13px}
+#gate input{font:inherit;padding:10px 12px;border-radius:8px;border:1px solid var(--color-border-line);background:var(--color-bg);color:var(--color-fg)}
+#gate button{font:inherit;padding:10px 12px;border-radius:8px;border:0;background:#1f1e1d;color:#fff;cursor:pointer}
+@media (prefers-color-scheme: dark){#gate button{background:#eceae4;color:#1f1e1d}}
+#gate .err{color:var(--color-bad)}
+#gate label{font-size:13px;color:var(--color-fg-muted);display:flex;gap:6px;align-items:center}
+</style>
+</head>
+<body>
+<div id="gate">
+  <form id="login" autocomplete="on">
+    <h1>Wrike allocation</h1>
+    <p>This dashboard is encrypted. Enter the password to open it.</p>
+    <input type="text" name="username" value="dashboard" autocomplete="username" hidden>
+    <input id="pw" type="password" autocomplete="current-password" placeholder="Password" required autofocus>
+    <label><input id="remember" type="checkbox"> Keep me signed in on this browser</label>
+    <button type="submit">Open dashboard</button>
+    <p id="msg" aria-live="polite"></p>
+  </form>
+</div>
+<div id="dash-root" hidden></div>
+<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js" integrity="__D3_SRI__" crossorigin="anonymous"></script>
+<script>
+const PAYLOAD = __PAYLOAD__;
+const b64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+async function unlock(pw) {
+  const key = await crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt: b64(PAYLOAD.salt), iterations: PAYLOAD.iter, hash: 'SHA-256' },
+    await crypto.subtle.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveKey']),
+    { name: 'AES-GCM', length: 256 }, true, ['decrypt']);
+  const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64(PAYLOAD.iv) }, key, b64(PAYLOAD.ct));
+  const text = await new Response(new Blob([plain]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+  return { app: JSON.parse(text), rawKey: new Uint8Array(await crypto.subtle.exportKey('raw', key)) };
+}
+async function unlockWithKey(raw) {
+  const key = await crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['decrypt']);
+  const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64(PAYLOAD.iv) }, key, b64(PAYLOAD.ct));
+  return JSON.parse(await new Response(new Blob([plain]).stream().pipeThrough(new DecompressionStream('gzip'))).text());
+}
+function start(app) {
+  document.getElementById('gate').remove();
+  const root = document.getElementById('dash-root');
+  root.innerHTML = app.html; root.hidden = false;
+  const run = (code) => { const s = document.createElement('script'); s.textContent = code; document.body.appendChild(s); };
+  window.ASOF = app.asof;
+  run(app.shim);
+  dash._load(app.data, app.params);
+  run(app.js);
+  dash._start();
+}
+const STORE = 'wrike-dash-key-' + PAYLOAD.salt.slice(0, 8);
+(async () => {
+  const saved = localStorage.getItem(STORE);
+  if (saved) { try { start(await unlockWithKey(b64(saved))); return; } catch (e) { localStorage.removeItem(STORE); } }
+})();
+document.getElementById('login').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const msg = document.getElementById('msg'); msg.className = ''; msg.textContent = 'Unlocking…';
+  try {
+    const { app, rawKey } = await unlock(document.getElementById('pw').value);
+    if (document.getElementById('remember').checked) localStorage.setItem(STORE, btoa(String.fromCharCode(...rawKey)));
+    start(app);
+  } catch (e) { msg.className = 'err'; msg.textContent = 'Wrong password.'; }
+});
+</script>
+</body>
+</html>

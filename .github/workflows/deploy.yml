@@ -1,0 +1,71 @@
+name: Refresh from Wrike and deploy
+
+on:
+  schedule:
+    - cron: "17 0 * * *"   # every day at 05:47 IST
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      HAS_WRIKE_TOKEN: ${{ secrets.WRIKE_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install cryptography requests
+
+      - name: Pull latest data from Wrike
+        if: env.HAS_WRIKE_TOKEN == 'true'
+        env:
+          WRIKE_TOKEN: ${{ secrets.WRIKE_TOKEN }}
+          WRIKE_HOST: ${{ vars.WRIKE_HOST || 'app-eu.wrike.com' }}
+          WRIKE_SPACE: ${{ vars.WRIKE_SPACE || 'Account Management' }}
+          WRIKE_ACCOUNT_ALIASES: ${{ secrets.WRIKE_ACCOUNT_ALIASES }}
+        run: python refresh_wrike.py
+
+      - name: Build encrypted page
+        if: env.HAS_WRIKE_TOKEN == 'true'
+        env:
+          WRIKE_DASH_PASSWORD: ${{ secrets.WRIKE_DASH_PASSWORD }}
+        run: python build.py
+
+      - name: Note when no Wrike token is set
+        if: env.HAS_WRIKE_TOKEN != 'true'
+        run: echo "::warning::WRIKE_TOKEN secret not set - deploying the committed snapshot without refreshing."
+
+      - name: Assemble site
+        run: |
+          mkdir -p _site
+          cp index.html _site/index.html
+          touch _site/.nojekyll
+          printf 'User-agent: *\nDisallow: /\n' > _site/robots.txt
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
